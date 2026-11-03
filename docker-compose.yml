@@ -3,6 +3,7 @@ services:
     image: mysql:8.4
     container_name: coffee_db
     restart: always
+    command: --disable-log-bin
     env_file:
       - .env
     environment:
