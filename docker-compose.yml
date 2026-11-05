@@ -29,5 +29,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
+  app:
+    build: ./app
+    container_name: coffee_app
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8501:8501"
+    depends_on:
+      db:
+        condition: service_healthy      
 volumes:
   db_data:
