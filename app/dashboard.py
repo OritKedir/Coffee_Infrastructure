@@ -166,6 +166,42 @@ def get_european_trajectory(latest_yr):
     with engine.connect() as conn:
         return pd.read_sql(text(query), conn)
 
+
+# ---------------------------------------------------------
+# Query 4: World 10-Year Trajectory
+# ---------------------------------------------------------
+@st.cache_data(ttl=600)
+def get_world_trajectory(latest_yr):
+    query = f"""
+    SELECT
+        area,
+        year,
+        SUM(CASE WHEN element_code = 5910
+                 THEN value ELSE 0 END) AS exports_t,
+        SUM(CASE WHEN element_code = 5610
+                 THEN value ELSE 0 END) AS imports_t,
+        SUM(CASE
+            WHEN element_code = 5910 THEN value
+            WHEN element_code = 5610 THEN -value
+            ELSE 0
+        END) AS net_trade_t
+
+    FROM raw_trade
+
+    WHERE item = 'Coffee, green'
+      AND unit = 't'
+      AND element_code IN (5610, 5910)
+      AND year BETWEEN {latest_yr - 9} AND {latest_yr}
+      AND area_code < 5000
+      AND area_code NOT IN (265, 351)
+
+    GROUP BY area, year
+    ORDER BY area, year;
+    """
+
+    with engine.connect() as conn:
+        return pd.read_sql(text(query), conn)
+
 # ---------------------------------------------------------
 # Application UI & Views
 # ---------------------------------------------------------
@@ -212,10 +248,22 @@ try:
     st.markdown("---")
     st.subheader("📈 10-Year Trade Trajectory")
 
-    df_traj = get_european_trajectory(latest_year)
+    df_traj = (
+        get_european_trajectory(latest_year)
+        if "Europe" in scope
+        else get_world_trajectory(latest_year)
+    )
+
     if not df_traj.empty:
         all_countries = sorted(df_traj['area'].unique().tolist())
-        default_countries = [c for c in ['Germany', 'Italy', 'France', 'Spain', 'Netherlands', 'Belgium'] if c in all_countries]
+
+        if "Europe" in scope:
+            defaults = ['Germany', 'Italy', 'France', 'Spain', 'Netherlands']
+        else:
+            defaults = ['Brazil', 'Vietnam', 'Colombia', 'Germany', 'Italy']
+
+        default_countries = [c for c in defaults if c in all_countries]
+
         if not default_countries and len(all_countries) > 0:
             default_countries = all_countries[:3]
 
