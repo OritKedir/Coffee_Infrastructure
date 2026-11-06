@@ -3,8 +3,35 @@ import time
 import pandas as pd
 import pymysql
 
-# Database connection credentials (matches docker-compose .env)
-DB_HOST = os.getenv("MYSQL_HOST", "localhost")  # Use 'db' if running inside docker container
+from pathlib import Path
+
+
+def load_env_file():
+    """Load the project's .env (searched upward from this file) into os.environ.
+    Existing environment variables win, so values can still be overridden."""
+    for folder in Path(__file__).resolve().parents:
+        env_path = folder / ".env"
+        if env_path.is_file():
+            for line in env_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+            return env_path
+    return None
+
+
+load_env_file()
+
+# 'db' only resolves inside the docker network; on a host machine use localhost.
+_in_docker = Path("/.dockerenv").exists()
+_host = os.getenv("MYSQL_HOST", "localhost")
+if _host == "db" and not _in_docker:
+    _host = "localhost"
+
+# Database connection credentials (read from the project's .env)
+DB_HOST = _host
 DB_USER = os.getenv("MYSQL_USER", "team_user")
 DB_PASSWORD = os.getenv("MYSQL_PASSWORD", "secret")
 DB_NAME = os.getenv("MYSQL_DATABASE", "coffee_trade")
@@ -22,7 +49,7 @@ SELECT
 FROM raw_trade
 WHERE item = 'Coffee, green'
   AND year >= 2013
-GROUP BY area, year
+GROUP BY area, yeargit 
 ORDER BY net_trade DESC;
 """
 
