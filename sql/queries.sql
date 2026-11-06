@@ -28,6 +28,7 @@ INSERT INTO europe_m49 (code) VALUES
 (40),(56),(250),(276),(438),(442),(492),(528),(756);
 
 -- 3. European top 5 net exporters and importers
+
 WITH country_totals AS (
     SELECT
         area,
@@ -35,15 +36,19 @@ WITH country_totals AS (
                  THEN value ELSE 0 END) AS exports_t,
         SUM(CASE WHEN element_code = 5610
                  THEN value ELSE 0 END) AS imports_t
+
     FROM raw_trade
+
     WHERE item = 'Coffee, green'
       AND unit = 't'
       AND element_code IN (5610, 5910)
       AND year BETWEEN @latest_year - 9 AND @latest_year
       AND CAST(REPLACE(area_code_m49, CHAR(39), '')
                AS UNSIGNED) IN (SELECT code FROM europe_m49)
+
     GROUP BY area
 ),
+
 ranked AS (
     SELECT
         area,
@@ -56,24 +61,32 @@ ranked AS (
         ) AS import_rank
     FROM country_totals
 )
-SELECT 'Exporter' AS category,
-       export_rank AS position,
-       area,
-       ROUND(net_trade_t, 2) AS net_trade_t
-FROM ranked
-WHERE export_rank <= 5 AND net_trade_t > 0
 
-UNION ALL
+SELECT
+    CASE
+        WHEN export_rank <= 5 AND net_trade_t > 0
+        THEN 'Exporter'
+        ELSE 'Importer'
+    END AS category,
 
-SELECT 'Importer' AS category,
-       import_rank AS position,
-       area,
-       ROUND(net_trade_t, 2) AS net_trade_t
+    CASE
+        WHEN export_rank <= 5 AND net_trade_t > 0
+        THEN export_rank
+        ELSE import_rank
+    END AS position,
+
+    area,
+    ROUND(net_trade_t, 2) AS net_trade_t
+
 FROM ranked
-WHERE import_rank <= 5 AND net_trade_t < 0
+
+WHERE (export_rank <= 5 AND net_trade_t > 0)
+   OR (import_rank <= 5 AND net_trade_t < 0)
+
 ORDER BY category, position;
 
 -- 4. Ten-year trajectory for European countries
+
 SELECT
     area,
     year,
@@ -86,18 +99,48 @@ SELECT
         WHEN element_code = 5610 THEN -value
         ELSE 0
     END) AS net_trade_t
+
 FROM raw_trade
+
 WHERE item = 'Coffee, green'
   AND unit = 't'
   AND element_code IN (5610, 5910)
   AND year BETWEEN @latest_year - 9 AND @latest_year
   AND REPLACE(area_code_m49, CHAR(39), '') IN (
-    SELECT LPAD(CAST(code AS CHAR), 3, '0')
-    FROM europe_m49
-)
+      SELECT LPAD(CAST(code AS CHAR), 3, '0')
+      FROM europe_m49
+  )
+
+
 GROUP BY area, year
 ORDER BY area, year;
 
+-- 5. Ten-year trajectory for worldwide countries
+
+SELECT
+    area,
+    year,
+    SUM(CASE WHEN element_code = 5910
+             THEN value ELSE 0 END) AS exports_t,
+    SUM(CASE WHEN element_code = 5610
+             THEN value ELSE 0 END) AS imports_t,
+    SUM(CASE
+        WHEN element_code = 5910 THEN value
+        WHEN element_code = 5610 THEN -value
+        ELSE 0
+    END) AS net_trade_t
+
+FROM raw_trade
+
+WHERE item = 'Coffee, green'
+  AND unit = 't'
+  AND element_code IN (5610, 5910)
+  AND year BETWEEN @latest_year - 9 AND @latest_year
+  AND area_code < 5000
+  AND area_code NOT IN (265, 351)
+
+GROUP BY area, year
+ORDER BY area, year;
 
 -- SERENA: WORLD COFFEE TRADE RANKING
 -- Dataset: FAOSTAT - Coffee, green
