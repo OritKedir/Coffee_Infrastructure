@@ -49,7 +49,7 @@ SELECT
 FROM raw_trade
 WHERE item = 'Coffee, green'
   AND year >= 2013
-GROUP BY area, yeargit 
+GROUP BY area, year 
 ORDER BY net_trade DESC;
 """
 
