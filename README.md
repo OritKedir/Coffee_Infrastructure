@@ -75,5 +75,5 @@ docker compose up --build
 Open the dashboard at **http://localhost:8501**.
 
 * **First run:** the `loader` downloads the FAOSTAT archive and loads ~17M rows into MySQL. This takes several minutes; the dashboard shows data once it finishes (`docker compose logs -f loader` to follow progress).
-* **Later runs:** data persists in the `db_data` volume, so the loader skips loading. Set `FORCE_RELOAD=1` in `.env` to reload.
+* **Later runs:** data persists in the `db_data` volume, so the loader skips loading. 
 * **Stop:** `docker compose down` (add `-v` to also delete the database volume).
