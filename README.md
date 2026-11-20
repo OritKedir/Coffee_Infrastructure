@@ -59,3 +59,21 @@ A containerized data infrastructure pipeline built to ingest, index, and analyze
 │   └───────────────┘                         └───────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
+---
+
+## 3. Setup & Run
+
+**Requirements:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running. No local Python packages are needed; each container installs its own dependencies.
+
+```bash
+git clone <repo-url>
+cd Coffee_Infrastructure
+cp .env.example .env        # then set your own passwords in .env
+docker compose up --build
+```
+
+Open the dashboard at **http://localhost:8501**.
+
+* **First run:** the `loader` downloads the FAOSTAT archive and loads ~17M rows into MySQL. This takes several minutes; the dashboard shows data once it finishes (`docker compose logs -f loader` to follow progress).
+* **Later runs:** data persists in the `db_data` volume, so the loader skips loading. 
+* **Stop:** `docker compose down` (add `-v` to also delete the database volume).
