@@ -5,7 +5,7 @@ import os
 import json
 import time
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 
 # FAOSTAT download URL
 DATA_URL = (
@@ -123,10 +123,16 @@ def load_data_to_db(zip_path, engine, max_rows=None):
 
 if __name__ == "__main__":
 
-    DATABASE_URL = os.getenv(
-        "DATABASE_URL",
-        "sqlite:///faostat_trade.db",
-    )
+    if os.getenv("DATABASE_URL"):
+        DATABASE_URL = os.environ["DATABASE_URL"]
+    elif os.getenv("MYSQL_HOST"):
+        DATABASE_URL = (
+            f"mysql+pymysql://{os.getenv('MYSQL_USER')}:{os.getenv('MYSQL_PASSWORD')}"
+            f"@{os.getenv('MYSQL_HOST')}:{os.getenv('MYSQL_PORT', '3306')}"
+            f"/{os.getenv('MYSQL_DATABASE')}"
+        )
+    else:
+        DATABASE_URL = "sqlite:///faostat_trade.db"
     engine = create_engine(DATABASE_URL)
 
     max_rows_setting = os.getenv("MAX_ROWS")
@@ -138,6 +144,13 @@ if __name__ == "__main__":
     )
 
     try:
+        if os.getenv("FORCE_RELOAD") != "1" and inspect(engine).has_table("raw_trade"):
+            with engine.connect() as conn:
+                existing = conn.execute(text("SELECT COUNT(*) FROM raw_trade")).scalar()
+            if existing:
+                print(f"raw_trade already has {existing:,} rows; skipping load (set FORCE_RELOAD=1 to reload).")
+                raise SystemExit(0)
+
         zip_file = download_zip()
 
         load_data_to_db(
